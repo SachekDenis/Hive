@@ -1,0 +1,150 @@
+version: "3"
+
+services:
+  namenode:
+    build: ./namenode
+    container_name: namenode
+    volumes:
+      - hadoop_namenode:/hadoop/dfs/name
+    environment:
+      - CLUSTER_NAME=test
+    env_file:
+      - ./hadoop-hive.env
+    ports:
+      - "9870:9870"
+
+  resourcemanager:
+    build: ./resourcemanager
+    container_name: resourcemanager
+    restart: on-failure
+    depends_on:
+      - namenode
+      - datanode1
+      - datanode2
+      - datanode3
+    env_file:
+      - ./hadoop-hive.env
+    ports:
+      - "8089:8088"
+
+  nodemanager1:
+    build: ./nodemanager
+    container_name: nodemanager1
+    depends_on:
+      - namenode
+      - datanode1
+      - datanode2
+    env_file:
+      - ./hadoop-hive.env
+    ports:
+      - "8042:8042"
+  
+  datanode1:
+    build: ./datanode
+    container_name: datanode1
+    depends_on:
+      - namenode
+    volumes:
+      - hadoop_datanode1:/hadoop/dfs/data
+    env_file:
+      - ./hadoop-hive.env
+  
+  datanode2:
+    build: ./datanode
+    container_name: datanode2
+    depends_on:
+      - namenode
+    volumes:
+      - hadoop_datanode2:/hadoop/dfs/data
+    env_file:
+      - ./hadoop-hive.env
+  
+  datanode3:
+    build: ./datanode
+    container_name: datanode3
+    depends_on:
+      - namenode
+    volumes:
+      - hadoop_datanode3:/hadoop/dfs/data
+    env_file:
+      - ./hadoop-hive.env
+
+  datanode4:
+    build: ./datanode
+    container_name: datanode4
+    depends_on:
+      - namenode
+    volumes:
+      - hadoop_datanode4:/hadoop/dfs/data
+    env_file:
+      - ./hadoop-hive.env
+
+  hive-server:
+    image: bde2020/hive:2.3.2-postgresql-metastore
+    env_file:
+      - ./hadoop-hive.env
+    depends_on:
+      - namenode
+      - datanode1
+      - hive-metastore
+    environment:
+      HIVE_CORE_CONF_javax_jdo_option_ConnectionURL: "jdbc:postgresql://hive-metastore/metastore"
+    ports:
+      - "10000:10000"
+
+  hive-metastore:
+    image: bde2020/hive:2.3.2-postgresql-metastore
+    depends_on:
+      - namenode
+      - datanode1
+      - hive-metastore-postgresql
+      - resourcemanager
+    env_file:
+      - ./hadoop-hive.env
+    command: /opt/hive/bin/hive --service metastore
+    ports:
+      - "9083:9083"
+
+  hive-metastore-postgresql:
+    image: bde2020/hive-metastore-postgresql:2.3.0
+    ports:
+      - "5432:5432"
+
+  huedb:
+    image: postgres:12.1-alpine
+    depends_on:
+      - namenode
+      - datanode1
+      - hive-metastore-postgresql
+      - resourcemanager
+      - hive-metastore
+    volumes:
+      - pg_data:/var/lib/postgresl/data/
+    ports:
+      - "5432"
+    env_file:
+      - ./hadoop-hive.env
+  
+  hue:
+    image: gethue/hue:4.6.0
+    depends_on:
+      - namenode
+      - datanode1
+      - hive-metastore-postgresql
+      - resourcemanager
+      - hive-metastore
+      - huedb
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./hue-overrides.ini:/usr/share/hue/desktop/conf/hue-overrides.ini
+    links:
+      - huedb
+
+volumes:
+  hadoop_namenode:
+  hadoop_datanode1:
+  hadoop_datanode2:
+  hadoop_datanode3:
+  hadoop_datanode4:
+  pg_data:
