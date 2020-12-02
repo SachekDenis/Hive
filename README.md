@@ -1,2 +1,2 @@
-# Hive
+# Apache Hive Cluster
  
